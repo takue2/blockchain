@@ -1,9 +1,10 @@
 import express from "express";
 import bodyParser from "body-parser";
-import {BlockChain} from "./blockchain";
+import {BlockChain} from "./blockChain";
 
 const app = express();
-const nodeIdentifier = "waiyade";
+const port = process.env.PORT || 3000;
+const nodeIdentifier = `waiyade${port}`;
 
 const blockChain = new BlockChain();
 
@@ -12,13 +13,17 @@ app.use(bodyParser.urlencoded({
 }));
 app.use(bodyParser.json());
 
-const server = app.listen(3000, function(){
+const server = app.listen(port, function(){
+    console.log(`Specified port: ${process.env.PORT}`)
     console.log("Node.js is listening to PORT:" + server.address());
 });
 
-app.get("/", (req, res) => {
-    res.json("youkoso");
-});
+app.get("/", (req,res) => {
+    res.json({
+        ...blockChain,
+        nodes: Array.from(blockChain.nodes)
+    })
+})
 
 app.get("/chain", (req, res) => {
     res.json(blockChain.chain);
@@ -31,7 +36,7 @@ app.post("/transaction/new", (req, res) => {
         amount: number;
     }
     const body:Body = req.body;
-    const block = blockChain.newTransaction(
+    const block = blockChain.addNewTransaction(
         body.sender, body.recipient, body.amount
     );
     res.json({
@@ -40,18 +45,38 @@ app.post("/transaction/new", (req, res) => {
 })
 
 app.get("/mine", (req, res) => {
-    const lastBlock = blockChain.lastBlock();
+    const lastBlock = blockChain.getLastBlock();
     const lastProof = lastBlock.proof;
     const proof = blockChain.pow(lastProof);
-    blockChain.newTransaction(
+    blockChain.addNewTransaction(
         "new",
         nodeIdentifier,
         1
     )
-    const block = blockChain.newBlock(proof)
+    const block = blockChain.addNewBlock(proof)
 
     res.json({
         message: "新しいブロックを採掘しました",
         ...block
     })
 });
+
+app.post("/node/register", async (req, res) => {
+    type Body = {
+        node: string;
+    };
+    const body:Body = req.body;
+    await blockChain.registerNode(body.node)
+    res.json({
+        message: "ノードを追加しました",
+        nodes: Array.from(blockChain.nodes)
+    });
+});
+
+app.get("/node/resolve", async (req, res) => {
+    await blockChain.resolveChainConflicts();
+    res.json({
+        message: ":conflict: :pien:",
+        currentChain: blockChain.chain
+    })
+})
