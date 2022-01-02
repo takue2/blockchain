@@ -87,6 +87,7 @@ app.post("/node/register", async (req, res) => {
         nodes: string[];
     };
     const body:Body = req.body;
+    // 未接続のノードが存在する場合はそのノードに登録リクエストを投げる
     Promise.all(body.nodes.map(async node => {
         const url = new URL(node);
 
@@ -94,14 +95,15 @@ app.post("/node/register", async (req, res) => {
             return await blockChain.registerNode(url.origin);
         }
     })).then(
+        // 未接続のノードから返却されたノードリスト
         (nodeSetList) => {
-            nodeSetList.forEach(nodeSet => {
+            nodeSetList.forEach(async (nodeSet, idx) => {
                 if (nodeSet) {
-                    nodeSet.forEach(async node => {
-                        await blockChain.registerNode(node);
-                        await axios.post(`${node}/node/register`, {
-                            nodes: Array.from(blockChain.nodes)
-                        });
+                    const url = new URL(body.nodes[idx]);
+                    console.log(`unknown node: ${url.origin}`)
+                    await blockChain.registerNode(url.origin);
+                    await axios.post(`${url.origin}/node/register`, {
+                        nodes: Array.from(blockChain.nodes)
                     });
                 }
             })
