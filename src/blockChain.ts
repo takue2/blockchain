@@ -1,5 +1,4 @@
 import {createHash} from "crypto";
-import { URL } from "url";
 import axios from "axios";
 
 export class Block {
@@ -17,7 +16,7 @@ export class Block {
     }
     index: number;
     timestamp: Date;
-    transactions: any[];
+    transactions: Transaction[];
     proof: number;
     previousHash: string;
 }
@@ -30,21 +29,20 @@ export type Transaction = {
 
 const genesisBlock = new Block(1,[],0,"");
 
-const exampleNodes = [
-    new URL("http://localhost:3210/chain"),
-    new URL("http://localhost:3211/chain")
-]
-
 export class BlockChain {
-    constructor() {
+    constructor(port: string) {
         this.chain = [genesisBlock];
         this.currentTransactions = [];
-        this.nodes = new Set(exampleNodes);
+        this.nodes = new Set([
+            // 試験的に3210ポートをハブとしてP2Pに参加する
+            `http://localhost:3210`,
+            `http://localhost:${port}`
+        ]);
     }
 
     chain: Block[];
     currentTransactions: Transaction[];
-    nodes: Set<URL>;
+    nodes: Set<string>;
 
     // transaction
     addNewTransaction(sender: string, recipient: string, amount: number) {
@@ -96,11 +94,12 @@ export class BlockChain {
         return hash.slice(0,4) === "0000";
     }
 
-    async registerNode(address: string) {
-        const url = new URL(address);
-        const res = await axios.get(url.href);
+    async registerNode(origin: string) {
+        const res = await axios.get(`${origin}/adminWeb`);
         if (res.status === 200) {
-            this.nodes.add(url)
+            if (!this.nodes.has(origin)) {
+                this.nodes.add(origin)
+            }
         }
         return this.nodes;
     }
@@ -134,7 +133,7 @@ export class BlockChain {
 
     async resolveChainConflicts() {
         const result = await Promise.all(Array.from(this.nodes).map(node => {
-            return axios.get(node.href)
+            return axios.get(`${node}/chain`)
         })).then(resList => {
             let candidate = this.chain;
             let candidateLength = candidate.length;

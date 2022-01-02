@@ -1,12 +1,14 @@
 import express from "express";
 import bodyParser from "body-parser";
 import {BlockChain} from "./blockChain";
+import axios from "axios";
+import { URL } from "url";
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || "3210";
 const nodeIdentifier = `waiyade${port}`;
 
-const blockChain = new BlockChain();
+const blockChain = new BlockChain(port);
 
 app.use(bodyParser.urlencoded({
     extended: true
@@ -16,6 +18,19 @@ app.use(bodyParser.json());
 const server = app.listen(port, function(){
     console.log(`Node.js is listening to PORT: ${process.env.PORT}`);
 });
+
+// AdminWeb
+app.get("/adminWeb", (req,res) => {
+    res.send(200);
+})
+
+// テスト用　initialize
+app.get("/initialize", async (req,res) => {
+    await axios.post("http://localhost:3210/node/register", {
+        nodes: Array.from(blockChain.nodes)
+    })
+    res.send(200);
+})
 
 // ルートでインスタンスの情報を全て取得
 app.get("/", (req,res) => {
@@ -69,12 +84,30 @@ app.get("/mine", (req, res) => {
 // 新規ノードのURLを追加する
 app.post("/node/register", async (req, res) => {
     type Body = {
-        node: string;
+        nodes: string[];
     };
     const body:Body = req.body;
-    await blockChain.registerNode(body.node)
+    Promise.all(body.nodes.map(async node => {
+        const url = new URL(node);
+
+        if (!blockChain.nodes.has(url.origin)) {
+            return await blockChain.registerNode(url.origin);
+        }
+    })).then(
+        (nodeSetList) => {
+            nodeSetList.forEach(nodeSet => {
+                if (nodeSet) {
+                    nodeSet.forEach(async node => {
+                        await blockChain.registerNode(node);
+                        await axios.post(`${node}/node/register`, {
+                            nodes: Array.from(blockChain.nodes)
+                        });
+                    });
+                }
+            })
+        }
+    );
     res.json({
-        message: "ノードを追加しました",
         nodes: Array.from(blockChain.nodes)
     });
 });
