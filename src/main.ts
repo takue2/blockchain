@@ -14,10 +14,10 @@ app.use(bodyParser.urlencoded({
 app.use(bodyParser.json());
 
 const server = app.listen(port, function(){
-    console.log(`Specified port: ${process.env.PORT}`)
-    console.log("Node.js is listening to PORT:" + server.address());
+    console.log(`Node.js is listening to PORT: ${process.env.PORT}`);
 });
 
+// ルートでインスタンスの情報を全て取得
 app.get("/", (req,res) => {
     res.json({
         ...blockChain,
@@ -25,10 +25,13 @@ app.get("/", (req,res) => {
     })
 })
 
+// chainでブロックチェーン部分を取得
 app.get("/chain", (req, res) => {
     res.json(blockChain.chain);
 });
 
+// 新規トランザクションに追加
+// トランザクションは次に生成されるブロックでまとめて記録される（あってる？）
 app.post("/transaction/new", (req, res) => {
     type Body = {
         sender: string;
@@ -40,10 +43,12 @@ app.post("/transaction/new", (req, res) => {
         body.sender, body.recipient, body.amount
     );
     res.json({
-        message: `${block}番目のtransactionに追加されました`
+        message: `${block}番目のブロックのtransactionに追加されました`
     })
 })
 
+// マイニング
+// 一時トランザクションを記録したブロックを追加する
 app.get("/mine", (req, res) => {
     const lastBlock = blockChain.getLastBlock();
     const lastProof = lastBlock.proof;
@@ -61,6 +66,7 @@ app.get("/mine", (req, res) => {
     })
 });
 
+// 新規ノードのURLを追加する
 app.post("/node/register", async (req, res) => {
     type Body = {
         node: string;
@@ -73,6 +79,7 @@ app.post("/node/register", async (req, res) => {
     });
 });
 
+// 全ノードのブロックをなめて、最も長いノードを己のブロックとする
 app.get("/node/resolve", async (req, res) => {
     await blockChain.resolveChainConflicts();
     res.json({

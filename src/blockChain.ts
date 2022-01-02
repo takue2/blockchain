@@ -1,5 +1,4 @@
 import {createHash} from "crypto";
-import { request } from "http";
 import { URL } from "url";
 import axios from "axios";
 
@@ -29,13 +28,7 @@ export type Transaction = {
     amount: number;
 };
 
-const genesisBlock: Block = {
-    index: 1,
-    timestamp: new Date(2022, 0, 2),
-    transactions: [],
-    proof: 0,
-    previousHash: ""
-};
+const genesisBlock = new Block(1,[],0,"");
 
 const exampleNodes = [
     new URL("http://localhost:3210/chain"),

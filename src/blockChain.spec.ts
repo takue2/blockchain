@@ -1,5 +1,6 @@
 import { BlockChain } from "./blockChain";
 
+// てすと　まだうごかない　ぴえん
 describe("blockChain", () => {
     it("validateChain", () => {
         const mockChain = [
