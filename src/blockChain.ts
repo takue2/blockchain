@@ -47,11 +47,12 @@ export class BlockChain {
     nodes: Set<string>;
 
     // transaction
-    addNewTransaction(sender: string, recipient: string, amount: number) {
+    addNewTransaction(sender: string, recipient: string, amount: number, date: Date) {
         const rawTransaction = {
             sender,
             recipient,
-            amount
+            amount,
+            date
         };
         const transaction = {
             ...rawTransaction,
@@ -169,6 +170,7 @@ export class BlockChain {
             this.chain = candidate;
             return candidate;
         })
+        this.currentTransactions = {};
         return result;
     }
 }

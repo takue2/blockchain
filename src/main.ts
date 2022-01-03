@@ -51,7 +51,6 @@ app.get("/chain", (req, res) => {
 // 新規トランザクションに追加
 // トランザクションは次に生成されるブロックでまとめて記録される（あってる？）
 app.post("/transaction/new", async (req, res) => {
-    await blockChain.resolveChainConflicts();
     type Body = {
         sender: string;
         recipient: string;
@@ -60,7 +59,7 @@ app.post("/transaction/new", async (req, res) => {
     }
     const body:Body = req.body;
     const transaction = blockChain.addNewTransaction(
-        body.sender, body.recipient, body.amount
+        body.sender, body.recipient, body.amount, body.timestamp
     );
 
     // transactionが新規に登録されたものの場合各ノードに配布する
@@ -80,16 +79,22 @@ app.post("/transaction/new", async (req, res) => {
 // マイニング
 // 一時トランザクションを記録したブロックを追加する
 app.get("/mine", async (req, res) => {
-    await blockChain.resolveChainConflicts();
     const lastBlock = blockChain.getLastBlock();
     const lastProof = lastBlock.proof;
     const proof = blockChain.pow(lastProof);
     blockChain.addNewTransaction(
         "new",
         nodeIdentifier,
-        1
+        1,
+        new Date()
     )
     const block = blockChain.addNewBlock(proof)
+
+    blockChain.nodes.forEach(async node => {
+        await axios.get(`${node}/node/resolve`).then(
+            res => console.log(`request resolve conflict to ${node}: ${res.status}`)
+        )
+    })
 
     res.json({
         message: "新しいブロックを採掘しました",
