@@ -15,8 +15,11 @@ app.use(bodyParser.urlencoded({
 }));
 app.use(bodyParser.json());
 
-const server = app.listen(port, function(){
+const server = app.listen(port, async function(){
     console.log(`Node.js is listening to PORT: ${process.env.PORT}`);
+    await axios.post("http://localhost:3210/node/register", {
+        nodes: Array.from(blockChain.nodes)
+    })
 });
 
 // AdminWeb
@@ -47,24 +50,37 @@ app.get("/chain", (req, res) => {
 
 // 新規トランザクションに追加
 // トランザクションは次に生成されるブロックでまとめて記録される（あってる？）
-app.post("/transaction/new", (req, res) => {
+app.post("/transaction/new", async (req, res) => {
+    await blockChain.resolveChainConflicts();
     type Body = {
         sender: string;
         recipient: string;
         amount: number;
+        timestamp: Date;
     }
     const body:Body = req.body;
-    const block = blockChain.addNewTransaction(
+    const transaction = blockChain.addNewTransaction(
         body.sender, body.recipient, body.amount
     );
+
+    // transactionが新規に登録されたものの場合各ノードに配布する
+    if (!transaction.duplicated) {
+        blockChain.nodes.forEach(async node => {
+            await axios.post(`${node}/transaction/new`, body).then(res => {
+                console.log(`try to add transaction to ${node}: ${res.status}`)
+            });
+        })
+    }
     res.json({
-        message: `${block}番目のブロックのtransactionに追加されました`
+        message: `${transaction.number}番目のブロックのtransactionに追加されました`,
+        transactionID: transaction.transaction.transactionID
     })
 })
 
 // マイニング
 // 一時トランザクションを記録したブロックを追加する
-app.get("/mine", (req, res) => {
+app.get("/mine", async (req, res) => {
+    await blockChain.resolveChainConflicts();
     const lastBlock = blockChain.getLastBlock();
     const lastProof = lastBlock.proof;
     const proof = blockChain.pow(lastProof);
@@ -87,7 +103,7 @@ app.post("/node/register", async (req, res) => {
         nodes: string[];
     };
     const body:Body = req.body;
-    // 未接続のノードが存在する場合はそのノードに登録リクエストを投げる
+    // 未接続のノードを登録する
     Promise.all(body.nodes.map(async node => {
         const url = new URL(node);
 
@@ -95,7 +111,7 @@ app.post("/node/register", async (req, res) => {
             return await blockChain.registerNode(url.origin);
         }
     })).then(
-        // 未接続のノードから返却されたノードリスト
+        // 未接続のノードが存在する場合はそのノードに登録リクエストを投げる
         (nodeSetList) => {
             nodeSetList.forEach(async (nodeSet, idx) => {
                 if (nodeSet) {
