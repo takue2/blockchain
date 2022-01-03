@@ -28,6 +28,7 @@ export type Transaction = {
     amount: number;
 };
 
+// 最初のブロック
 const genesisBlock = new Block(1,{},0,"");
 
 export class BlockChain {
